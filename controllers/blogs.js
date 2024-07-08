@@ -2,6 +2,7 @@ const jwt = require('jsonwebtoken')
 const blogRouter = require('express').Router()
 const Blog = require('../models/blog')
 const User = require('../models/users')
+const userExtractor = require('../utils/middleware').userExtractor
 
 
 blogRouter.get('/', async (request, response) => {
@@ -9,7 +10,7 @@ blogRouter.get('/', async (request, response) => {
     response.json(blogs)
 })
 
-blogRouter.post('/', async (request, response) => {
+blogRouter.post('/', userExtractor, async (request, response) => {
     const {title, author, url, likes} = request.body
 
     const user = request.user
@@ -31,7 +32,7 @@ blogRouter.post('/', async (request, response) => {
     response.status(201).json(savedBlog)
 })
 
-blogRouter.delete('/:id', async (request, response) => {
+blogRouter.delete('/:id', userExtractor, async (request, response) => {
     const { id } = request.params
 
     const user = request.user
@@ -61,9 +62,17 @@ blogRouter.put('/:id', async (request, response) => {
         url: body.url
     }
 
-    Blog.findByIdAndUpdate(request.params.id, blog, {new: true,runValidators: true, context: 'query'})
-    .then(updatedBlog => response.json(updatedBlog))
-    .catch(error => console.log(error))
+    try {
+        const updatedBlog = await Blog.findByIdAndUpdate(request.params.id, blog, { new: true, runValidators: true, context: 'query' })
+        if (updatedBlog) {
+          response.json(updatedBlog)
+        } else {
+          response.status(404).end()
+        }
+      } catch (error) {
+        console.log(error)
+        response.status(400).json({ error: 'Failed to update blog' })
+      }
 })
 
 module.exports = blogRouter
